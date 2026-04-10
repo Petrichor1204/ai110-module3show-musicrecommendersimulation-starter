@@ -18,16 +18,36 @@ Replace this paragraph with your own summary of what your version does.
 ## How The System Works
 
 Explain your design in plain language.
+Real world systems like spotify use an operation with different layers to recommend songs for users. This includes narrowing millions of songs down to hundreds using fast approximate methods, applying a heavyweight model to the candidate set, reranking, and then retraining with a feedback loop.
+
+My design is a single-pass content-based scorer, meaning every song is scored against the user profile in one pass and ranked. The user tells the system what they want upfront and the system finds songs that match those attributes.
 
 Some prompts to answer:
 
 - What features does each `Song` use in your system
   - For example: genre, mood, energy, tempo
+Features Song will use include genre, mood, energy, valence
+
+
 - What information does your `UserProfile` store
+favorite_genre, favorite_mood, target_energy, target_valence
+
 - How does your `Recommender` compute a score for each song
+Each song is scored out of 100 points using a mix of exact match and proximity checks:
+  - Mood match (30 pts): exact match only — the song either matches the user's favorite mood or it doesn't.
+  - Genre match (25 pts): exact match only — same binary logic as mood.
+  - Energy proximity (20 pts): partial credit using the formula (1 - abs(song.energy - user.target_energy)) * 20. A perfect energy match scores 20, a song 0.5 off scores 10.
+  - Valence proximity (15 pts): partial credit using the formula (1 - abs(song.valence - user.target_valence)) * 15. Works the same way as energy.
+
 - How do you choose which songs to recommend
+After loading the full song catalog from the CSV, I score each song against the user's stated preferences. Songs earn points for matching genre, mood, energy, and valence. The top-k highest-scoring songs are returned as recommendations. 
 
 You can include a simple diagram or bullet list if helpful.
+
+**Potential Biases:**
+- Genre and mood together account for 55 out of 100 points. A song that perfectly matches a user's energy and valence but misses on genre and mood can score at most 35 — lower than a genre+mood match with poor numeric fit. This means the system may surface familiar-sounding songs over genuinely fitting ones.
+- Mood is the highest-weighted single feature, but the catalog only has 10 distinct moods. Users with niche moods (e.g. "nostalgic") may rarely get a mood match, effectively reducing their max score to 70.
+- The system has no memory of past listens, so it will recommend the same top songs every time the user profile stays the same — no diversity or serendipity over time.
 
 ---
 
